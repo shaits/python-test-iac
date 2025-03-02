@@ -59,7 +59,7 @@ jobs:
          run: exit 1     
 
        - name: Terraform Apply
-         id: apple
+         id: apply
          if: github.ref == 'refs/heads/main' && github.event_name == 'push'
          run: terraform apply -var "region=${{ env.AWS_REGION }}" -var "cluster_name=${{ env.EKS_CLUSTER_NAME }}" -auto-approve -input=false -parallelism=1 planfile
 
@@ -72,9 +72,15 @@ jobs:
      
        - name: Get Kube config file
          id: getconfig
-         if: steps.apple.outcome == 'success'
+         if: steps.apply.outcome == 'success'
          run: aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }} 
 
        - name: Install Ingress controller
-         if: steps.apple.outcome == 'success' && steps.getconfig.outcome == 'success'
+         if: steps.apply.outcome == 'success' && steps.getconfig.outcome == 'success'
          run: kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.1.3/deploy/static/provider/aws/deploy.yaml
+
+       - name: Terraform Destroy
+         id: destroy
+         if: steps.apply.outcome == 'success'
+         run: terraform destroy -var "region=${{ env.AWS_REGION }}" -var "cluster_name=${{ env.EKS_CLUSTER_NAME }}" -auto-approve -input=false -parallelism=1
+
